@@ -1,6 +1,4 @@
----
 
-```markdown
 # 🎬 AnimeStream - Platform Streaming Anime Modern
 
 **AnimeStream** adalah platform streaming anime yang dibangun dengan teknologi modern untuk memberikan pengalaman menonton anime yang nyaman dan menarik. Proyek ini menggunakan **Vue.js** untuk frontend dan **Laravel** untuk backend, dengan integrasi API dari **Jikan** dan **Consumet**.
