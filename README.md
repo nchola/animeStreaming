@@ -3,7 +3,7 @@
 
 **AnimeStream** adalah platform streaming anime yang dibangun dengan teknologi modern untuk memberikan pengalaman menonton anime yang nyaman dan menarik. Proyek ini menggunakan **Vue.js** untuk frontend dan **Laravel** untuk backend, dengan integrasi API dari **Jikan** dan **Consumet**.
 
-![AnimeStream Preview](https://via.placeholder.com/800x400.png?text=AnimeStream+Preview) <!-- Ganti dengan screenshot proyek Anda -->
+![image](https://github.com/user-attachments/assets/93fdf02c-060b-4ffa-aeb3-2e9351e59dd1)
 
 ---
 
