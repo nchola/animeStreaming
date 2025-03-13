@@ -8,11 +8,17 @@
         
         <div class="modal-content">
           <div class="video-container">
+            <div v-if="videoLoading" class="loading-indicator">
+              Memuat video...
+            </div>
             <video 
-              :src="getVideoSource(anime)" 
+              v-else
+              :src="currentVideoUrl" 
               controls 
               class="video-player"
               autoplay
+              @loadeddata="videoLoading = false"
+              @error="handleVideoError"
             ></video>
           </div>
           
@@ -47,19 +53,22 @@
           number: i + 1,
           title: `Episode ${i + 1}`,
           url: 'https://example.com/video.mp4' // Ganti dengan URL sebenarnya
-        }))
+        })),
+        currentVideoUrl: '',
+        videoLoading: true
       }
     },
     methods: {
       close() {
         this.$emit('close');
       },
-      getVideoSource(anime) {
-        return anime.trailer?.embed_url || 'https://example.com/default-video.mp4';
-      },
       selectEpisode(episode) {
-        console.log('Selected episode:', episode);
-        // Implementasi logika pemutaran episode
+        this.currentVideoUrl = episode.url;
+        this.videoLoading = true;
+      },
+      handleVideoError() {
+        console.error('Gagal memuat video');
+        this.videoLoading = false;
       }
     }
   }

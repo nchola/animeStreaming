@@ -106,9 +106,7 @@
   
   <style scoped>
   .anime-list-container {
-    padding: 2rem 1rem;
-    max-width: 1400px;
-    margin: 0 auto;
+    min-height: 100vh;
   }
   
   .hero-section {
@@ -155,12 +153,14 @@
   }
   
   .anime-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 2rem;
-    padding: 0 1rem;
-  }
-  
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-rows: repeat(5, 1fr); /* 5 baris */
+  gap: 2rem;
+  padding: 0 1rem;
+  max-height: 80vh; /* Tinggi maksimal */
+  overflow-y: auto; /* Scroll vertikal */
+}
   .anime-card {
     position: relative;
     border-radius: 12px;
