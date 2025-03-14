@@ -5,6 +5,9 @@
         <router-link to="/" class="logo-link">
           <h1 class="logo">AnimeStream</h1>
         </router-link>
+        <div class="nav-links">
+          <router-link to="/genres" class="nav-link">Genres</router-link>
+        </div>
         <div class="search-container">
           <input type="text" placeholder="Cari anime..." class="search-input" />
         </div>
@@ -106,5 +109,40 @@ body {
   margin: 0 auto;
   text-align: center;
   color: #888;
+}
+/* Tambahkan gaya untuk nav-links */
+.nav-links {
+  display: flex;
+  gap: 2rem;
+  margin-left: auto;
+  margin-right: 2rem;
+}
+
+.nav-link {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+  padding: 0.5rem 0;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00ff88, #00b4d8);
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+.nav-link.router-link-exact-active {
+  color: #00ff88;
 }
 </style>
