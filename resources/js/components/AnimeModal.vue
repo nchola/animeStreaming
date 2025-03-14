@@ -1,78 +1,82 @@
 <template>
-    <div class="modal-overlay" @click.self="close">
-      <div class="modal-container">
-        <div class="modal-header">
-          <h2>{{ anime.title }}</h2>
-          <button class="close-btn" @click="close">&times;</button>
-        </div>
-        
-        <div class="modal-content">
-          <div class="video-container">
-            <div v-if="videoLoading" class="loading-indicator">
-              Memuat video...
-            </div>
-            <video 
-              v-else
-              :src="currentVideoUrl" 
-              controls 
-              class="video-player"
-              autoplay
-              @loadeddata="videoLoading = false"
-              @error="handleVideoError"
-            ></video>
+  <div class="modal-overlay" @click.self="close">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2>{{ anime.title }}</h2>
+        <button class="close-btn" @click="close">&times;</button>
+      </div>
+
+      <div class="modal-content">
+        <div class="video-container">
+          <div v-if="videoLoading" class="loading-indicator">
+            Memuat video...
           </div>
-          
-          <div class="episode-selector">
-            <div 
-              v-for="episode in episodes" 
-              :key="episode.id" 
-              class="episode-card"
-              @click="selectEpisode(episode)"
-            >
-              <div class="episode-number">Episode {{ episode.number }}</div>
-              <div class="episode-title">{{ episode.title || 'Episode Title' }}</div>
-            </div>
+          <video 
+            v-else
+            :src="currentVideoUrl" 
+            controls 
+            class="video-player"
+            autoplay
+            @loadeddata="videoLoading = false"
+            @error="handleVideoError"
+          ></video>
+        </div>
+
+        <div class="episode-selector">
+          <div 
+            v-for="episode in episodes" 
+            :key="episode.id" 
+            class="episode-card"
+            @click="selectEpisode(episode)"
+          >
+            <div class="episode-number">Episode {{ episode.number }}</div>
+            <div class="episode-title">{{ episode.title || 'Episode Title' }}</div>
           </div>
         </div>
       </div>
     </div>
-  </template>
-  
-  <script>
-  export default {
-    props: {
-      anime: {
-        type: Object,
-        required: true
-      }
+  </div>
+</template>
+
+<script>
+export default {
+  props: {
+    anime: {
+      type: Object,
+      required: true,
     },
-    data() {
-      return {
-        episodes: Array.from({ length: 12 }, (_, i) => ({
-          id: i + 1,
-          number: i + 1,
-          title: `Episode ${i + 1}`,
-          url: 'https://example.com/video.mp4' // Ganti dengan URL sebenarnya
-        })),
-        currentVideoUrl: '',
-        videoLoading: true
-      }
+  },
+  data() {
+    return {
+      episodes: Array.from({ length: 12 }, (_, i) => ({
+        id: i + 1,
+        number: i + 1,
+        title: `Episode ${i + 1}`,
+        url: 'https://example.com/video.mp4', // Ganti dengan URL sebenarnya
+      })),
+      currentVideoUrl: '',
+      videoLoading: true,
+    };
+  },
+  methods: {
+    close() {
+      this.$emit('close');
     },
-    methods: {
-      close() {
-        this.$emit('close');
-      },
-      selectEpisode(episode) {
-        this.currentVideoUrl = episode.url;
-        this.videoLoading = true;
-      },
-      handleVideoError() {
-        console.error('Gagal memuat video');
-        this.videoLoading = false;
-      }
-    }
-  }
-  </script>
+    selectEpisode(episode) {
+      this.currentVideoUrl = episode.url;
+      this.videoLoading = true;
+    },
+    handleVideoError() {
+      console.error('Gagal memuat video');
+      this.videoLoading = false;
+    },
+  },
+};
+</script>
+
+<style scoped>
+/* Tambahkan gaya CSS Anda di sini */
+</style>
   
   <style scoped>
   .modal-overlay {

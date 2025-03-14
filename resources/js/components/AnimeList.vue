@@ -70,149 +70,146 @@
 </template>
 
 <script>
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import AnimeModal from './AnimeModal.vue';
+import AnimeModal from './AnimeModal.vue'; // Import AnimeModal
 
 export default {
   components: {
-    AnimeModal
+    AnimeModal, // Register AnimeModal
   },
-  data() {
-    return {
-      animeList: [],
-      loading: true,
-      error: null,
-      currentPage: 1,
-      totalPages: 5,
-      selectedAnime: null,
-      requestDelay: 4000, // Delay in ms to avoid rate limiting
-      lastRequestTime: 0
-    };
-  },
-  computed: {
-    uniqueAnimeList() {
+  setup() {
+    const animeList = ref([]);
+    const loading = ref(true);
+    const error = ref(null);
+    const currentPage = ref(1);
+    const totalPages = ref(5);
+    const selectedAnime = ref(null);
+    const requestDelay = 4000; // Delay untuk menghindari rate limiting
+    const lastRequestTime = ref(0);
+    const abortController = ref(null);
+
+    // Computed property untuk menghapus duplikat anime
+    const uniqueAnimeList = computed(() => {
       const seenIds = new Map();
-      return this.animeList.filter(anime => {
+      return animeList.value.filter(anime => {
         if (seenIds.has(anime.mal_id)) {
           return false;
         }
         seenIds.set(anime.mal_id, true);
         return true;
       });
-    }
-  },
-  created() {
-    // Fetch initial data
-    const initialItemsPerPage = this.calculateItemsPerPage();
-    this.fetchTopAnime(initialItemsPerPage);
-    
-    // Add event listeners
-    window.addEventListener('resize', this.handleResize);
-    window.addEventListener('orientationchange', this.handleOrientationChange);
-  },
-  unmounted() {
-    // Remove event listeners
-    window.removeEventListener('resize', this.handleResize);
-    window.removeEventListener('orientationchange', this.handleOrientationChange);
-    document.body.classList.remove('modal-open');
-  },
-  methods: {
-    handleResize() {
-      // Recalculate items per page for current viewport
-      const newItemsPerPage = this.calculateItemsPerPage();
-      
-      // If we need more items and we're not currently loading
-      if (this.animeList.length < newItemsPerPage && !this.loading) {
-        this.fetchTopAnime(newItemsPerPage);
+    });
+
+    // Fungsi untuk mengambil data anime
+    const fetchTopAnime = async (itemsPerPage = null) => {
+      if (abortController.value) {
+        abortController.value.abort(); // Batalkan request sebelumnya
       }
-    },
-    // Method to handle screen orientation changes
-    handleOrientationChange() {
-      const itemsPerPage = this.calculateItemsPerPage();
-      
-      // If orientation changes and we need more items, fetch them
-      if (this.animeList.length < itemsPerPage) {
-        this.fetchTopAnime(itemsPerPage);
+
+      abortController.value = new AbortController();
+      loading.value = true;
+      error.value = null;
+
+      try {
+        const now = Date.now();
+        const timeSinceLastRequest = now - lastRequestTime.value;
+
+        if (timeSinceLastRequest < requestDelay) {
+          await new Promise(resolve => setTimeout(resolve, requestDelay - timeSinceLastRequest));
+        }
+
+        const limit = itemsPerPage || calculateItemsPerPage();
+
+        console.log("Fetching anime data..."); // Log sebelum request
+        const response = await axios.get(`https://api.jikan.moe/v4/top/anime?page=${currentPage.value}&limit=${limit}`, {
+          signal: abortController.value.signal,
+        });
+
+        console.log("API Response:", response.data); // Log response
+        animeList.value = response.data.data || [];
+        lastRequestTime.value = Date.now();
+
+        if (response.data.pagination) {
+          totalPages.value = Math.min(response.data.pagination.last_visible_page, 5);
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error("Error fetching anime:", err); // Log error
+          error.value = "Gagal memuat data anime. Silakan coba lagi nanti.";
+        }
+      } finally {
+        loading.value = false;
       }
-      
-      // Recalculate grid layout
-      this.handleResize();
-    },
-    // Dynamically adjust the number of items to fetch based on screen size
-    calculateItemsPerPage() {
+    };
+
+    // Fungsi untuk mengubah halaman
+    const changePage = async (page) => {
+      if (loading.value || page === currentPage.value) return;
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      currentPage.value = page;
+      await fetchTopAnime();
+    };
+
+    // Fungsi untuk membuka modal anime
+    const openAnimeModal = (anime) => {
+      selectedAnime.value = { ...anime };
+      document.body.classList.add('modal-open');
+    };
+
+    // Fungsi untuk menutup modal anime
+    const closeAnimeModal = () => {
+      selectedAnime.value = null;
+      document.body.classList.remove('modal-open');
+    };
+
+    // Fungsi untuk menghitung jumlah item per halaman
+    const calculateItemsPerPage = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      
-      // Calculate approximate number of items that can fit in viewport
-      let columns = 2; // Default for smallest screens
-      
+
+      let columns = 2; // Default untuk layar terkecil
       if (width > 2000) columns = 8;
       else if (width > 1400) columns = 6;
       else if (width > 991) columns = 5;
       else if (width > 576) columns = 4;
       else if (width > 375) columns = 3;
-      
-      // Calculate rows based on screen height (rough estimate)
+
       const cardHeight = width > 576 ? 300 : 250;
-      const availableHeight = height - 300; // Subtract header and pagination height
+      const availableHeight = height - 300; // Kurangi tinggi header dan pagination
       const rows = Math.max(2, Math.floor(availableHeight / cardHeight));
-      
-      // Return items that fit viewport plus a buffer
+
       return columns * (rows + 1);
-    },
-    async fetchTopAnime(itemsPerPage = 24) {
-      this.loading = true;
-      this.error = null;
-      
-      try {
-        const now = Date.now();
-        const timeSinceLastRequest = now - this.lastRequestTime;
-        
-        if (timeSinceLastRequest < this.requestDelay) {
-          await new Promise(resolve => 
-            setTimeout(resolve, this.requestDelay - timeSinceLastRequest)
-          );
-        }
-        
-        // Dynamic limit based on screen size
-        const limit = itemsPerPage || this.calculateItemsPerPage();
-        
-        const response = await axios.get(`https://api.jikan.moe/v4/top/anime?page=${this.currentPage}&limit=${limit}`);
-        this.animeList = response.data.data || [];
-        this.lastRequestTime = Date.now();
-        
-        if (response.data.pagination) {
-          this.totalPages = Math.min(response.data.pagination.last_visible_page, 5);
-        }
-      } catch (error) {
-        console.error("Error fetching anime:", error);
-        this.error = "Gagal memuat data anime. Silakan coba lagi nanti.";
-      } finally {
-        this.loading = false;
-      }
-    },
-    async changePage(page) {
-      if (this.loading || page === this.currentPage) return;
-      
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      this.currentPage = page;
-      await this.fetchTopAnime();
-    },
-    openAnimeModal(anime) {
-      this.selectedAnime = { ...anime };
-      document.body.classList.add('modal-open');
-    },
-    closeAnimeModal() {
-      this.selectedAnime = null;
-      document.body.classList.remove('modal-open');
-    },
-    loadAllAnime() {
-      alert('Feature coming soon: View all anime');
-      // Implement your "view all" logic here
-    }
-  }
+    };
+
+    // Panggil fetchTopAnime saat komponen dimount
+    onMounted(() => {
+      console.log("AnimeList component mounted");
+      const initialItemsPerPage = calculateItemsPerPage();
+      fetchTopAnime(initialItemsPerPage);
+    });
+
+    return {
+      animeList,
+      loading,
+      error,
+      currentPage,
+      totalPages,
+      uniqueAnimeList,
+      selectedAnime,
+      fetchTopAnime,
+      changePage,
+      openAnimeModal,
+      closeAnimeModal,
+    };
+  },
 };
 </script>
+
+<style scoped>
+/* Tambahkan gaya CSS Anda di sini */
+</style>
 
 <style scoped>
 /* Reset to ensure full-screen works properly */
