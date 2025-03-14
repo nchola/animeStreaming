@@ -12,19 +12,32 @@ export function useAnime() {
   const lastRequestTime = ref(0);
   const abortController = ref(null);
 
-  // Computed property untuk menghapus duplikat anime
-  const uniqueAnimeList = computed(() => {
-    const seenIds = new Map();
-    return animeList.value.filter(anime => {
-      if (seenIds.has(anime.mal_id)) {
-        return false;
-      }
-      seenIds.set(anime.mal_id, true);
-      return true;
-    });
-  });
+  // Fallback data jika API down
+  const fallbackData = {
+    1535: {
+      title: "Death Note",
+      episodes: 37,
+      images: { jpg: { large_image_url: "https://cdn.myanimelist.net/images/anime/9/9453.jpg" } }
+    }
+  };
 
-  // Fungsi untuk mengambil data anime
+  // Axios instance dengan retry mechanism
+  const axiosInstance = axios.create();
+
+  axiosInstance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const config = error.config;
+      if (error.response?.status === 429 && !config._retry) {
+        config._retry = true;
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Delay 3 detik
+        return axiosInstance(config);
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  // Fetch data anime
   const fetchTopAnime = async (itemsPerPage = null) => {
     if (abortController.value) {
       abortController.value.abort(); // Batalkan request sebelumnya
@@ -45,7 +58,7 @@ export function useAnime() {
       const limit = itemsPerPage || calculateItemsPerPage();
 
       console.log("Fetching anime data..."); // Log sebelum request
-      const response = await axios.get(`https://api.jikan.moe/v4/top/anime?page=${currentPage.value}&limit=${limit}`, {
+      const response = await axiosInstance.get(`https://api.jikan.moe/v4/top/anime?page=${currentPage.value}&limit=${limit}`, {
         signal: abortController.value.signal,
       });
 
@@ -60,6 +73,7 @@ export function useAnime() {
       if (err.name !== 'AbortError') {
         console.error("Error fetching anime:", err); // Log error
         error.value = "Gagal memuat data anime. Silakan coba lagi nanti.";
+        animeList.value = fallbackData; // Gunakan fallback data
       }
     } finally {
       loading.value = false;
@@ -91,7 +105,6 @@ export function useAnime() {
     error,
     currentPage,
     totalPages,
-    uniqueAnimeList,
     selectedAnime,
     fetchTopAnime,
     calculateItemsPerPage,
