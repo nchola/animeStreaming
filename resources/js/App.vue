@@ -24,6 +24,17 @@
   </div>
 </template>
 
+<script>
+import Genres from './components/genres/Genres.vue';
+
+export default {
+  name: 'App',
+  components: {
+    Genres
+  }
+};
+</script>
+
 <style>
 /* Reset CSS */
 * {
