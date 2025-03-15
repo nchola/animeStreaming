@@ -45,7 +45,16 @@ animestream/
 │   │   ├── components/
 │   │   │   ├── AnimeList.vue
 │   │   │   ├── AnimeModal.vue
+│   │   │   ├── AnimePlayer.vue
+│   │   │   ├── GenreAnimeList.vue
+│   │   │   ├── Genere.vue
+│   │   ├── composables/
+│   │   │   ├── useAnime.js
+│   │   ├── stores/
+│   │   │   ├── anime.js
 │   │   ├── App.vue
+│   │   ├── app.js
+│   │   ├── bootstrap.js
 │   │   ├── router.js
 │   ├── views/
 │   │   ├── welcome.blade.php
