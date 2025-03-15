@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import AnimeList from './components/anime/AnimeList.vue';
-import AnimePlayer from './components/anime/AnimePlayer.vue';
-import Genres from './components/genres/Genres.vue';
-import GenreAnimeList from './components/genres/GenreAnimeList.vue';
+import AnimeList from './components/AnimeList.vue';
+import AnimePlayer from './components/AnimePlayer.vue';
+import Genres from './components/Genres.vue';
+import GenreAnimeList from './components/GenreAnimeList.vue';
 
 
 const routes = [

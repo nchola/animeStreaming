@@ -1,24 +1,20 @@
-// vite.config.js
-import { defineConfig } from 'vite'
-import laravel from 'laravel-vite-plugin'
-import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
   plugins: [
-    laravel(['resources/js/app.js', 'resources/css/app.css']),
+    laravel({
+      input: ['resources/css/app.css', 'resources/js/app.js'],
+      refresh: true,
+    }),
     vue({
+      // Tambahkan opsi Vue jika diperlukan
       template: {
-        transformAssetUrls: {
-          base: null,
-          includeAbsolute: false,
-        },
-      },
+        compilerOptions: {
+          // Konfigurasi khusus komponen Vue
+        }
+      }
     }),
   ],
-  resolve: {
-    alias: {
-      '@': '/resources/js',
-      '~styles': '/resources/js/styles'
-    }
-  }
-})
+});

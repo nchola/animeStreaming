@@ -21,10 +21,19 @@
       </div>
 
       <div v-else class="anime-grid">
-        <div v-for="anime in animeList" :key="anime.mal_id" class="genre-anime-card"
-          @click="navigateToAnime(anime.mal_id)">
+        <div 
+          v-for="anime in animeList" 
+          :key="anime.mal_id" 
+          class="genre-anime-card"
+          @click="navigateToAnime(anime.mal_id)"
+        >
           <div class="card-overlay"></div>
-          <img :src="anime.images.webp.large_image_url" :alt="anime.title" class="anime-poster" loading="lazy" />
+          <img 
+            :src="anime.images.webp.large_image_url" 
+            :alt="anime.title" 
+            class="anime-poster"
+            loading="lazy"
+          />
           <div class="anime-info">
             <h3 class="anime-title">{{ anime.title }}</h3>
             <div class="anime-stats">
@@ -37,79 +46,79 @@
     </section>
   </main>
 </template>
-
-
-<script>
-import { ref, onMounted, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import axios from 'axios';
-
-export default {
-  setup() {
-    const route = useRoute();
-    const router = useRouter();
-    const genreName = ref('');
-    const animeList = ref([]);
-    const loading = ref(true);
-    const error = ref(null);
-
-    const heroStyle = computed(() => ({
-      backgroundImage: `linear-gradient(135deg, rgba(26, 26, 26, 0.9) 0%, rgba(10, 10, 10, 0.95) 100%), 
+  
+  
+  <script>
+  import { ref, onMounted, computed } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
+  import axios from 'axios';
+  
+  export default {
+    setup() {
+      const route = useRoute();
+      const router = useRouter();
+      const genreName = ref('');
+      const animeList = ref([]);
+      const loading = ref(true);
+      const error = ref(null);
+  
+      const heroStyle = computed(() => ({
+        backgroundImage: `linear-gradient(135deg, rgba(26, 26, 26, 0.9) 0%, rgba(10, 10, 10, 0.95) 100%), 
                          url('https://source.unsplash.com/random/1920x1080/?anime,${genreName.value}')`
-    }));
+      }));
+  
+      // GenreAnimeList.vue - Update fetchGenreAnime method
+const fetchGenreAnime = async () => {
+  try {
+    loading.value = true;
+    error.value = null;
+    
+    // Fetch genre name
+    const genreResponse = await axios.get('https://api.jikan.moe/v4/genres/anime');
+    const genreData = genreResponse.data.data.find(g => g.mal_id === parseInt(route.params.id));
+    
+    if (!genreData) {
+      throw new Error('Genre not found');
+    }
+    
+    genreName.value = genreData.name;
 
-    // GenreAnimeList.vue - Update fetchGenreAnime method
-    const fetchGenreAnime = async () => {
-      try {
-        loading.value = true;
-        error.value = null;
-
-        // Fetch genre name
-        const genreResponse = await axios.get('https://api.jikan.moe/v4/genres/anime');
-        const genreData = genreResponse.data.data.find(g => g.mal_id === parseInt(route.params.id));
-
-        if (!genreData) {
-          throw new Error('Genre not found');
-        }
-
-        genreName.value = genreData.name;
-
-        // Fetch anime by genre
-        const animeResponse = await axios.get(
-          `https://api.jikan.moe/v4/anime?genres=${route.params.id}&order_by=popularity&sfw`
-        );
-
-        animeList.value = animeResponse.data.data || [];
-      } catch (err) {
-        error.value = 'Gagal memuat konten genre';
-        console.error(err);
-      } finally {
-        loading.value = false;
-      }
-    };
-
-    const navigateToAnime = (id) => {
-      router.push(`/anime/${id}`);
-    };
-
-    onMounted(() => {
-      fetchGenreAnime();
-    });
-
-    return {
-      genreName,
-      animeList,
-      loading,
-      error,
-      heroStyle,
-      fetchGenreAnime,
-      navigateToAnime
-    };
+    // Fetch anime by genre
+    const animeResponse = await axios.get(
+      `https://api.jikan.moe/v4/anime?genres=${route.params.id}&order_by=popularity&sfw`
+    );
+    
+    animeList.value = animeResponse.data.data || [];
+  } catch (err) {
+    error.value = 'Gagal memuat konten genre';
+    console.error(err);
+  } finally {
+    loading.value = false;
   }
 };
-</script>
-
-<style scoped>
+  
+      const navigateToAnime = (id) => {
+        router.push(`/anime/${id}`);
+      };
+  
+      onMounted(() => {
+        fetchGenreAnime();
+      });
+  
+      return {
+        genreName,
+        animeList,
+        loading,
+        error,
+        heroStyle,
+        fetchGenreAnime,
+        navigateToAnime
+      };
+    }
+  };
+  </script>
+  
+  <style scoped>
 .genre-anime-container {
   min-height: 100vh;
   display: flex;
@@ -257,12 +266,12 @@ export default {
   .genre-title {
     font-size: 2.5rem;
   }
-
+  
   .anime-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1.5rem;
   }
-
+  
   .genre-anime-card {
     height: 320px;
   }
@@ -273,16 +282,16 @@ export default {
     padding: 1rem;
     min-height: 300px;
   }
-
+  
   .genre-title {
     font-size: 2rem;
   }
-
+  
   .anime-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 1rem;
   }
-
+  
   .genre-anime-card {
     height: 280px;
   }
