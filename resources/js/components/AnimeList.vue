@@ -1,16 +1,77 @@
 <template>
   <main class="anime-list-container">
-    <section class="hero-section">
-      <div class="hero-content">
-        <h2 class="hero-title">Selamat Datang di AnimeStream</h2>
-        <p class="hero-subtitle">Temukan ribuan anime terbaik dalam satu platform</p>
-      </div>
-    </section>
 
+    <!-- Trending Section with Slider -->
     <section class="trending-section">
       <div class="section-header">
         <h3>Trending Now</h3>
         <div class="view-more" @click="loadAllAnime">Lihat Semua</div>
+      </div>
+
+      <div v-if="trendingLoading" class="loading-container">
+        <div class="loader"></div>
+      </div>
+
+      <div v-else-if="trendingError" class="error-container">
+        <p>{{ trendingError }}</p>
+        <button @click="fetchTrendingAnime" class="retry-button">Coba Lagi</button>
+      </div>
+
+      <swiper v-else :modules="modules" :slides-per-view="'auto'" :space-between="20" :navigation="true"
+        :breakpoints="trendingBreakpoints" class="trending-slider">
+        <swiper-slide v-for="anime in trendingAnime" :key="anime.mal_id">
+          <div class="trending-card" @click="openAnimeModal(anime)">
+            <img :src="anime.images.webp.large_image_url" :alt="anime.title" class="trending-poster" loading="lazy" />
+            <div class="trending-info">
+              <h4 class="anime-title">{{ anime.title }}</h4>
+              <div class="anime-meta">
+                <span class="rating">
+                  <i class="fas fa-star"></i> {{ anime.score || 'N/A' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </swiper-slide>
+      </swiper>
+    </section>
+
+    <!-- Schedule Section -->
+    <section class="schedule-section">
+      <div class="section-header">
+        <h3>Jadwal Tayang Hari Ini</h3>
+      </div>
+
+      <div v-if="scheduleLoading" class="loading-container">
+        <div class="loader"></div>
+      </div>
+
+      <div v-else-if="scheduleError" class="error-container">
+        <p>{{ scheduleError }}</p>
+        <button @click="fetchSchedule" class="retry-button">Coba Lagi</button>
+      </div>
+
+      <swiper v-else :modules="modules" :slides-per-view="'auto'" :space-between="20" :navigation="true"
+        :breakpoints="scheduleBreakpoints" class="schedule-slider">
+        <swiper-slide v-for="item in scheduleData" :key="item.mal_id">
+          <div class="schedule-card">
+            <div class="time-slot">{{ item.broadcast.time || '00:00' }}</div>
+            <img :src="item.images.webp.large_image_url" :alt="item.title" class="schedule-poster" />
+            <div class="schedule-info">
+              <h4>{{ item.title }}</h4>
+              <p class="broadcast-info">
+                {{ item.broadcast?.day || 'Belum Ada Jadwal Tayang' }} •
+                {{ item.broadcast?.time || 'x' }}
+              </p>
+            </div>
+          </div>
+        </swiper-slide>
+      </swiper>
+    </section>
+
+    <!-- Anime Grid Section -->
+    <section class="anime-grid-section">
+      <div class="section-header">
+        <h3>Semua Anime</h3>
       </div>
 
       <div v-if="loading" class="loading-container">
@@ -23,19 +84,10 @@
       </div>
 
       <div v-else class="anime-grid">
-        <div 
-          v-for="(anime, index) in uniqueAnimeList" 
-          :key="`anime-${anime.mal_id}-${index}`" 
-          class="anime-card"
-          @click="openAnimeModal(anime)"
-        >
+        <div v-for="(anime, index) in uniqueAnimeList" :key="`anime-${anime.mal_id}-${index}`" class="anime-card"
+          @click="openAnimeModal(anime)">
           <div class="card-overlay"></div>
-          <img 
-            :src="anime.images.jpg.large_image_url" 
-            :alt="anime.title" 
-            class="anime-poster"
-            loading="lazy"
-          />
+          <img :src="anime.images.jpg.large_image_url" :alt="anime.title" class="anime-poster" loading="lazy" />
           <div class="anime-info">
             <h4 class="anime-title">{{ anime.title }}</h4>
             <div class="anime-meta">
@@ -48,319 +100,275 @@
         </div>
       </div>
 
+      <!-- Pagination -->
       <div v-if="!loading && uniqueAnimeList.length > 0" class="pagination">
-        <button 
-          v-for="page in totalPages" 
-          :key="`page-${page}`" 
-          @click="changePage(page)"
-          :class="{ active: currentPage === page }"
-          :disabled="loading"
-        >
+        <button v-for="page in totalPages" :key="`page-${page}`" @click="changePage(page)"
+          :class="{ active: currentPage === page }" :disabled="loading">
           {{ page }}
         </button>
       </div>
     </section>
 
-    <AnimeModal 
-      v-if="selectedAnime" 
-      :anime="selectedAnime" 
-      @close="closeAnimeModal"
-    />
+    <!-- Anime Modal -->
+    <AnimeModal v-if="selectedAnime" :anime="selectedAnime" @close="closeAnimeModal" />
   </main>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import AnimeModal from './AnimeModal.vue'; // Import AnimeModal
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import { Navigation } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import AnimeModal from './AnimeModal.vue';
 
 export default {
   components: {
-    AnimeModal, // Register AnimeModal
+    Swiper,
+    SwiperSlide,
+    AnimeModal
   },
   setup() {
+    const modules = ref([Navigation]);
     const animeList = ref([]);
+    const trendingAnime = ref([]);
+    const scheduleData = ref([]);
     const loading = ref(true);
+    const trendingLoading = ref(true);
+    const scheduleLoading = ref(true);
     const error = ref(null);
+    const trendingError = ref(null);
+    const scheduleError = ref(null);
     const currentPage = ref(1);
     const totalPages = ref(5);
     const selectedAnime = ref(null);
-    const requestDelay = 4000; // Delay untuk menghindari rate limiting
-    const lastRequestTime = ref(0);
-    const abortController = ref(null);
 
-    // Computed property untuk menghapus duplikat anime
-    const uniqueAnimeList = computed(() => {
-      const seenIds = new Map();
-      return animeList.value.filter(anime => {
-        if (seenIds.has(anime.mal_id)) {
-          return false;
-        }
-        seenIds.set(anime.mal_id, true);
-        return true;
-      });
-    });
-
-    // Fungsi untuk mengambil data anime
-    const fetchTopAnime = async (itemsPerPage = null) => {
-      if (abortController.value) {
-        abortController.value.abort(); // Batalkan request sebelumnya
-      }
-
-      abortController.value = new AbortController();
-      loading.value = true;
-      error.value = null;
-
+    // Fetch Trending Anime
+    const fetchTrendingAnime = async () => {
       try {
-        const now = Date.now();
-        const timeSinceLastRequest = now - lastRequestTime.value;
-
-        if (timeSinceLastRequest < requestDelay) {
-          await new Promise(resolve => setTimeout(resolve, requestDelay - timeSinceLastRequest));
-        }
-
-        const limit = itemsPerPage || calculateItemsPerPage();
-
-        console.log("Fetching anime data..."); // Log sebelum request
-        const response = await axios.get(`https://api.jikan.moe/v4/top/anime?page=${currentPage.value}&limit=${limit}`, {
-          signal: abortController.value.signal,
-        });
-
-        console.log("API Response:", response.data); // Log response
-        animeList.value = response.data.data || [];
-        lastRequestTime.value = Date.now();
-
-        if (response.data.pagination) {
-          totalPages.value = Math.min(response.data.pagination.last_visible_page, 5);
-        }
+        const response = await axios.get('https://api.jikan.moe/v4/top/anime?limit=5');
+        trendingAnime.value = response.data.data;
       } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error("Error fetching anime:", err); // Log error
-          error.value = "Gagal memuat data anime. Silakan coba lagi nanti.";
-        }
+        trendingError.value = "Gagal memuat anime trending";
+      } finally {
+        trendingLoading.value = false;
+      }
+    };
+
+    // Fetch Schedule
+    const fetchSchedule = async () => {
+  try {
+    const response = await axios.get('https://api.jikan.moe/v4/schedules');
+    scheduleData.value = response.data.data; // Simpan data jadwal
+  } catch (err) {
+    scheduleError.value = "Gagal memuat jadwal tayang";
+  } finally {
+    scheduleLoading.value = false;
+  }
+};
+
+    // Fetch All Anime
+    const fetchTopAnime = async () => {
+      try {
+        const response = await axios.get(`https://api.jikan.moe/v4/top/anime?page=${currentPage.value}`);
+        animeList.value = response.data.data;
+      } catch (err) {
+        error.value = "Gagal memuat data anime";
       } finally {
         loading.value = false;
       }
     };
 
-    // Fungsi untuk mengubah halaman
-    const changePage = async (page) => {
-      if (loading.value || page === currentPage.value) return;
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      currentPage.value = page;
-      await fetchTopAnime();
-    };
-
-    // Fungsi untuk membuka modal anime
+    // Open Anime Modal
     const openAnimeModal = (anime) => {
-      selectedAnime.value = { ...anime };
-      document.body.classList.add('modal-open');
+      selectedAnime.value = anime;
     };
 
-    // Fungsi untuk menutup modal anime
+    // Close Anime Modal
     const closeAnimeModal = () => {
       selectedAnime.value = null;
-      document.body.classList.remove('modal-open');
     };
 
-    // Fungsi untuk menghitung jumlah item per halaman
-    const calculateItemsPerPage = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      let columns = 2; // Default untuk layar terkecil
-      if (width > 2000) columns = 8;
-      else if (width > 1400) columns = 6;
-      else if (width > 991) columns = 5;
-      else if (width > 576) columns = 4;
-      else if (width > 375) columns = 3;
-
-      const cardHeight = width > 576 ? 300 : 250;
-      const availableHeight = height - 300; // Kurangi tinggi header dan pagination
-      const rows = Math.max(2, Math.floor(availableHeight / cardHeight));
-
-      return columns * (rows + 1);
+    // Change Page
+    const changePage = (page) => {
+      currentPage.value = page;
+      fetchTopAnime();
     };
 
-    // Panggil fetchTopAnime saat komponen dimount
     onMounted(() => {
-      console.log("AnimeList component mounted");
-      const initialItemsPerPage = calculateItemsPerPage();
-      fetchTopAnime(initialItemsPerPage);
+      fetchTrendingAnime();
+      fetchSchedule();
+      fetchTopAnime();
     });
 
     return {
+      modules,
       animeList,
+      trendingAnime,
+      scheduleData,
       loading,
+      trendingLoading,
+      scheduleLoading,
       error,
+      trendingError,
+      scheduleError,
       currentPage,
       totalPages,
-      uniqueAnimeList,
       selectedAnime,
+      fetchTrendingAnime,
+      fetchSchedule,
       fetchTopAnime,
-      changePage,
       openAnimeModal,
       closeAnimeModal,
+      changePage,
+      uniqueAnimeList: computed(() => {
+        const seenIds = new Map();
+        return animeList.value.filter(anime => {
+          if (seenIds.has(anime.mal_id)) return false;
+          seenIds.set(anime.mal_id, true);
+          return true;
+        });
+      }),
+      trendingBreakpoints: {
+        320: { slidesPerView: 1.2 },
+        480: { slidesPerView: 2.2 },
+        768: { slidesPerView: 3.2 },
+        1024: { slidesPerView: 4.2 },
+        1280: { slidesPerView: 5.2 }
+      },
+      scheduleBreakpoints: {
+        320: { slidesPerView: 1.2 },
+        480: { slidesPerView: 2.3 },
+        768: { slidesPerView: 3.3 },
+        1024: { slidesPerView: 4.3 },
+        1280: { slidesPerView: 5.3 }
+      }
     };
-  },
+  }
 };
 </script>
 
 <style scoped>
-/* Tambahkan gaya CSS Anda di sini */
-</style>
-
-<style scoped>
-/* Reset to ensure full-screen works properly */
+/* Global Reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body, html {
+body,
+html {
   height: 100%;
   width: 100%;
   overflow-x: hidden;
+  background-color: #141414;
+  color: #fff;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-.anime-list-container {
-  width: 100%;
-  min-height: 100vh;
-  padding: 0;
-  margin: 0;
-  background-color: #0f0f0f;
-}
-
+/* Hero Section */
 .hero-section {
-  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
-  padding: 3rem 1rem;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6)),
+    url('https://via.placeholder.com/1920x600') no-repeat center center/cover;
+  padding: 6rem 2rem;
   text-align: center;
-  width: 100%;
-  margin: 0 0 1rem 0;
+  position: relative;
+}
+
+.hero-content {
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .hero-title {
-  font-size: min(4vw, 2.5rem);
-  margin-bottom: 1rem;
-  background: linear-gradient(45deg, #00ff88, #00b4d8);
+  font-size: 3rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, #e50914, #f40612);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  margin-bottom: 1rem;
 }
 
 .hero-subtitle {
-  color: #888;
-  font-size: min(2.5vw, 1.2rem);
+  font-size: 1.5rem;
+  color: #e5e5e5;
 }
 
+/* Trending Section */
 .trending-section {
-  width: 100%;
-  padding: 0 1rem;
+  padding: 2rem;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 1rem 0;
-  width: 100%;
+  margin-bottom: 1.5rem;
 }
 
 .section-header h3 {
-  font-size: min(3vw, 1.5rem);
+  font-size: 1.5rem;
+  font-weight: bold;
 }
 
 .view-more {
-  color: #00ff88;
+  color: #e50914;
   cursor: pointer;
+  font-size: 0.9rem;
   transition: opacity 0.3s;
-  font-size: min(2.5vw, 1rem);
 }
 
 .view-more:hover {
   opacity: 0.8;
 }
 
-/* Full-screen responsive grid */
-.anime-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: clamp(0.5rem, 2vw, 2rem);
-  width: 100%;
-  min-height: calc(100vh - 300px); /* Adjust based on header and pagination height */
-  padding-bottom: 1rem;
+.trending-slider {
+  padding: 0 2rem;
 }
 
-.anime-card {
+.trending-card {
   position: relative;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
-  aspect-ratio: 2/3; /* Maintain poster aspect ratio */
-  height: auto;
-  width: 100%;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  aspect-ratio: 16/9;
 }
 
-.anime-card:hover {
-  transform: translateY(-5px) scale(1.03);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-  z-index: 1;
+.trending-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  z-index: 2;
 }
 
-.card-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.9) 100%);
-}
-
-.anime-poster {
+.trending-poster {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 12px;
-  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.anime-poster[loading="lazy"] {
-  opacity: 0;
-  animation: fadeIn 0.5s ease forwards;
-}
-
-@keyframes fadeIn {
-  to { opacity: 1; }
-}
-
-.anime-info {
+.trending-info {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: clamp(0.5rem, 1.5vw, 1.5rem);
-  z-index: 1;
+  padding: 1rem;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 10%, transparent 100%);
 }
 
 .anime-title {
-  font-size: clamp(0.8rem, 1.2vw, 1.1rem);
+  font-size: 1.1rem;
+  font-weight: bold;
   margin-bottom: 0.5rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
 .anime-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: clamp(0.7rem, 1vw, 0.9rem);
-  color: #ccc;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #e5e5e5;
 }
 
 .rating {
@@ -370,25 +378,121 @@ body, html {
   color: #ffd700;
 }
 
+/* Schedule Section */
+.schedule-section {
+  padding: 2rem;
+}
+
+.schedule-slider {
+  padding: 0 2rem;
+}
+
+.schedule-card {
+  background: #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.schedule-card:hover {
+  transform: translateY(-5px);
+}
+
+.time-slot {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(229, 9, 20, 0.9);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.schedule-poster {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.schedule-info {
+  padding: 1rem;
+}
+
+.schedule-info h4 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.broadcast-info {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+/* Anime Grid Section */
+.anime-grid-section {
+  padding: 2rem;
+}
+
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.anime-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  aspect-ratio: 2/3;
+}
+
+.anime-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.anime-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.anime-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 10%, transparent 100%);
+}
+
+/* Pagination */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(0.3rem, 1vw, 0.5rem);
-  margin: 2rem 0;
-  width: 100%;
+  gap: 0.5rem;
+  margin-top: 2rem;
 }
 
 .pagination button {
-  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.5rem, 2vw, 1rem);
-  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  background: #2a2a2a;
   border: none;
-  border-radius: 6px;
-  color: white;
+  border-radius: 4px;
+  color: #fff;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: clamp(0.8rem, 1vw, 1rem);
+  transition: background 0.3s ease;
+}
+
+.pagination button.active {
+  background: #e50914;
 }
 
 .pagination button:disabled {
@@ -396,231 +500,66 @@ body, html {
   cursor: not-allowed;
 }
 
-.pagination button.active {
-  background: linear-gradient(45deg, #00ff88, #00b4d8);
-  color: #000;
-}
-
-.loading-container, .error-container {
-  height: calc(100vh - 300px);
+/* Loading and Error States */
+.loading-container,
+.error-container {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  width: 100%;
+  height: 200px;
 }
 
 .error-container {
-  color: #ff5252;
-  text-align: center;
-  padding: 2rem;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .retry-button {
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(45deg, #00ff88, #00b4d8);
+  padding: 0.5rem 1rem;
+  background: #e50914;
   border: none;
-  border-radius: 6px;
-  color: #000;
-  font-weight: bold;
+  border-radius: 4px;
+  color: #fff;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease;
 }
 
 .retry-button:hover {
-  opacity: 0.9;
-  transform: translateY(-2px);
+  opacity: 0.8;
 }
 
 .loader {
-  width: clamp(32px, 8vw, 48px);
-  height: clamp(32px, 8vw, 48px);
-  border: 3px solid #FFF;
+  border: 4px solid #e50914;
+  border-top: 4px solid transparent;
   border-radius: 50%;
-  display: inline-block;
-  position: relative;
-  box-sizing: border-box;
-  animation: rotation 1s linear infinite;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
 }
 
-.loader::after {
-  content: '';  
-  box-sizing: border-box;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: clamp(36px, 9vw, 56px);
-  height: clamp(36px, 9vw, 56px);
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Swiper Navigation Customization */
+:deep(.swiper-button-next),
+:deep(.swiper-button-prev) {
+  color: #e50914 !important;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 20px;
   border-radius: 50%;
-  border: 3px solid transparent;
-  border-bottom-color: #00ff88;
+  width: 40px;
+  height: 40px;
 }
 
-@keyframes rotation {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Global class for modal open state */
-:global(.modal-open) {
-  overflow: hidden;
-}
-
-/* Media Queries for Different Devices */
-/* Large Screens */
-@media (min-width: 1400px) {
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-/* Medium Screens (Tablets) */
-@media (max-width: 991px) {
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 1rem;
-  }
-}
-
-/* Small Screens (Mobile) */
-@media (max-width: 576px) {
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 0.75rem;
-  }
-  
-  .hero-section {
-    padding: 2rem 1rem;
-  }
-  
-  .pagination {
-    margin: 1.5rem 0;
-  }
-  
-  .anime-info {
-    padding: 0.75rem;
-  }
-}
-
-/* Extremely Small Screens */
-@media (max-width: 375px) {
-  .anime-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-  }
-  
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .pagination button {
-    padding: 0.3rem 0.5rem;
-  }
-}
-
-/* Landscape Mode on Mobile */
-@media (max-height: 500px) and (orientation: landscape) {
-  .hero-section {
-    padding: 1rem;
-  }
-  
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    min-height: calc(100vh - 200px);
-  }
-  
-  .hero-title {
-    font-size: 1.5rem;
-  }
-  
-  .hero-subtitle {
-    font-size: 0.9rem;
-  }
-}
-
-/* High-DPI Screens (Retina Displays) */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .anime-card {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  }
-  
-  .anime-title {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  }
-}
-
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  .anime-list-container {
-    background-color: #0f0f0f;
-  }
-}
-
-/* Support for Reduced Motion Preferences */
-@media (prefers-reduced-motion: reduce) {
-  .anime-card,
-  .anime-card:hover,
-  .anime-poster,
-  .retry-button:hover,
-  .pagination button {
-    transition: none;
-  }
-  
-  .anime-card:hover {
-    transform: none;
-  }
-  
-  .loader {
-    animation: none;
-    border: 3px solid #00ff88;
-  }
-}
-
-/* Print Styles */
-@media print {
-  .anime-grid {
-    display: block;
-  }
-  
-  .anime-card {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    display: inline-block;
-    width: 25%;
-    margin: 0 0 1rem 0;
-  }
-  
-  .pagination,
-  .hero-section,
-  .view-more {
-    display: none;
-  }
-}
-
-/* iPad & Tablet Specific */
-@media only screen and (min-device-width: 768px) and (max-device-width: 1024px) {
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
-}
-
-/* Fix for older Safari versions */
-@supports (-webkit-overflow-scrolling: touch) {
-  .anime-poster {
-    -webkit-transform: translateZ(0);
-  }
-}
-
-/* Support for ultra-wide screens */
-@media (min-width: 2000px) {
-  .anime-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    max-width: 2400px;
-    margin: 0 auto;
-  }
+:deep(.swiper-button-next::after),
+:deep(.swiper-button-prev::after) {
+  font-size: 1.2rem !important;
 }
 </style>
