@@ -1,28 +1,40 @@
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue';
+
 export default defineConfig({
+  define: {
+    __VUE_PROD_DEVTOOLS__: true
+  },
   plugins: [
     laravel({
-      input: 'resources/js/app.js',
-      refresh: {
-        paths: [
-          'resources/views/**',
-          'routes/**',
-          'app/Http/Controllers/**'
-        ]
-      }
+      input: [
+        'resources/css/app.css', 
+        'resources/js/app.js'
+      ],
+      refresh: true,
     }),
     vue({
-      reactivityTransform: true,
       template: {
         compilerOptions: {
-          // Bypass production checks
-          isCustomElement: (tag) => tag.startsWith('ion-')
+          // Tambahkan opsi compiler jika diperlukan
         }
       }
     })
   ],
-  optimizeDeps: {
-    include: [
-      '@vue/devtools-api'
-    ]
+  resolve: {
+    alias: {
+      '@': '/resources/js',
+      'ziggy-js': '/vendor/tightenco/ziggy/dist/vue.es.js'
+    }
+  },
+  server: {
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws'
+    },
+    watch: {
+      usePolling: true
+    }
   }
-})
+});

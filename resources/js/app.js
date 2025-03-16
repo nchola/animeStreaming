@@ -2,12 +2,16 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import axios from 'axios';
+import { apiCache } from './composables/apiCache';
 import devtools from './devtools-patch'; // Pastikan file ini ada
 import { createPinia } from 'pinia';
 
 // Inisialisasi app
 const app = createApp(App);
 const pinia = createPinia();
+
+app.provide('apiCache', apiCache);
+
 
 // Konfigurasi Axios
 axios.defaults.baseURL = 'http://localhost:8000';
