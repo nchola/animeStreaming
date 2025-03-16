@@ -1,20 +1,28 @@
-import { defineConfig } from 'vite';
-import laravel from 'laravel-vite-plugin';
-import vue from '@vitejs/plugin-vue';
-
 export default defineConfig({
   plugins: [
     laravel({
-      input: ['resources/css/app.css', 'resources/js/app.js'],
-      refresh: true,
-    }),
-    vue({
-      // Tambahkan opsi Vue jika diperlukan
-      template: {
-        compilerOptions: {
-          // Konfigurasi khusus komponen Vue
-        }
+      input: 'resources/js/app.js',
+      refresh: {
+        paths: [
+          'resources/views/**',
+          'routes/**',
+          'app/Http/Controllers/**'
+        ]
       }
     }),
+    vue({
+      reactivityTransform: true,
+      template: {
+        compilerOptions: {
+          // Bypass production checks
+          isCustomElement: (tag) => tag.startsWith('ion-')
+        }
+      }
+    })
   ],
-});
+  optimizeDeps: {
+    include: [
+      '@vue/devtools-api'
+    ]
+  }
+})
